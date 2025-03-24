@@ -13,7 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   decomp_ros_utils
 )
-
+find_package(decomp_util REQUIRED)
+include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 

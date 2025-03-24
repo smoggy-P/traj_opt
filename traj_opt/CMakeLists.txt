@@ -9,6 +9,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 find_package(Eigen3 REQUIRED)
 find_package(PCL 1.7 REQUIRED)
 find_package(osqp REQUIRED)
+find_package(decomp_util REQUIRED
+decomp_ros_utils)
+include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp

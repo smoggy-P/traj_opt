@@ -32,6 +32,7 @@
 #include <traj_utils/poly_traj.hpp>
 
 #include "decomp_ros_utils/data_ros_utils.h"
+#include "decomp_util/ellipsoid_decomp.h"
 using namespace std;
 namespace visualizer {
 /**
