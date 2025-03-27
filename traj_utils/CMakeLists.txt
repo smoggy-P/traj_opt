@@ -67,7 +67,9 @@ target_link_libraries( traj_utils
     ${catkin_LIBRARIES} 
     ${Eigen3_LIBRARIES} 
     )  
-
+install(DIRECTORY include/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
 if (CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
   catkin_add_gtest(test_bernstein test/test_bernstein.cpp)

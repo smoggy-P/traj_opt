@@ -63,7 +63,9 @@ target_link_libraries(vis_bezier_opt
     ${catkin_LIBRARIES}
     traj_opt
 )
-
+install(DIRECTORY include/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
 # #########
 # # Test ##
 # #########
