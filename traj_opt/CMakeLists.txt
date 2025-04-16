@@ -2,16 +2,8 @@ cmake_minimum_required(VERSION 2.8.3)
 project(traj_opt)
 
 set(CMAKE_BUILD_TYPE "Release")
-ADD_COMPILE_OPTIONS(-std=c++11)
-ADD_COMPILE_OPTIONS(-std=c++14)
+set(CMAKE_CXX_FLAGS "-std=c++17")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
-
-find_package(Eigen3 REQUIRED)
-find_package(PCL 1.7 REQUIRED)
-find_package(osqp REQUIRED)
-find_package(decomp_util REQUIRED
-decomp_ros_utils)
-include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
@@ -24,6 +16,13 @@ find_package(catkin REQUIRED COMPONENTS
     # path_searching
     geometry_msgs
 )
+
+find_package(Eigen3 REQUIRED)
+find_package(PCL 1.7 REQUIRED)
+find_package(osqp REQUIRED)
+find_package(decomp_util REQUIRED
+decomp_ros_utils)
+include_directories(${DECOMP_UTIL_INCLUDE_DIRS})
 
 catkin_package(
     INCLUDE_DIRS include
