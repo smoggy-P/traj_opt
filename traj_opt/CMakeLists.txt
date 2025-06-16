@@ -44,6 +44,7 @@ add_library(traj_opt
     # src/poly_traj_optimizer.cpp
     src/mini_snap.cpp
     src/bezier_optimizer.cpp
+    src/bernstein/yaw_bezier_optimizer.cpp
 )
 
 target_link_libraries(traj_opt
