@@ -13,11 +13,17 @@
 #include <vector>
 #include <traj_utils/bernstein.hpp>
 #include <iosqp.hpp>
+#include <ros/ros.h>
 
 namespace traj_opt {
 
 typedef Bernstein::Bezier BezierCurve;
 
+/**
+ * @brief Yaw angle planning using Bezier curves with minimum acceleration
+ * This class optimizes a single-dimensional yaw angle trajectory using Bezier curves.
+ * Unlike the position Bezier curve which handles 3D (x,y,z), this handles only yaw angle.
+ */
 class YawBezierOpt {
 public:
     YawBezierOpt() {
@@ -33,51 +39,51 @@ public:
     ~YawBezierOpt() {}
 
     /* Main API */
-    void setup(const double start_yaw,
-              const double start_yaw_rate,
-              const double end_yaw,
-              const double end_yaw_rate,
-              const std::vector<double>& time_allocation,
-              const double max_yaw_rate = 1.0,
-              const double max_yaw_acc = 1.0);
+    void setup(const double start_yaw,              // Initial yaw angle
+              const double start_yaw_rate,          // Initial yaw rate
+              const double end_yaw,                 // Final yaw angle
+              const double end_yaw_rate,            // Final yaw rate
+              const std::vector<double>& time_allocation,  // Time allocation for each segment
+              const double max_yaw_rate = 1.0,      // Maximum yaw rate constraint
+              const double max_yaw_acc = 1.0);      // Maximum yaw acceleration constraint
 
     bool optimize();
 
     /* Getters */
     inline Eigen::VectorXd getOptCtrlPts() { return x_; }
     inline BezierCurve getOptBezier() {
-        calcBezierCurve();
+        // calcBezierCurve();
         return *bc_;
     }
+    double getYaw(double t);
 
 private:
-    BezierCurve::Ptr bc_;
+    BezierCurve::Ptr bc_;  // Bezier curve for single-dimensional yaw
 
     int M_;    // number of segments
     int N_;    // order of the polynomial
-    int DM_;   // dimension of the optimization problem
+    int DM_;   // dimension of the optimization problem (M_ * (N_ + 1))
     double max_yaw_rate_;
     double max_yaw_acc_;
 
     std::vector<double> t_;            // time allocation
-    Eigen::Vector4d init_, goal_;      // [yaw; yaw_rate]
+    Eigen::Vector2d init_, goal_;      // [yaw; yaw_rate] for single dimension
 
-    Eigen::MatrixXd Q_;   // cost matrix
+    Eigen::MatrixXd Q_;   // cost matrix for minimum acceleration
     Eigen::MatrixXd A_;   // constraint matrix
     Eigen::VectorXd b_;   // bound vector
     Eigen::VectorXd ub_;  // upper bound vector
     Eigen::VectorXd lb_;  // lower bound vector
-    Eigen::VectorXd x_;   // vector of control points
+    Eigen::VectorXd x_;   // vector of control points for single-dimensional yaw
 
-    Eigen::MatrixXd y2r_;  // yaw control points to rate control points
-    Eigen::MatrixXd r2a_;  // rate control points to acceleration control points
+    Eigen::MatrixXd y2r_;  // yaw to rate conversion matrix (N_ x (N_+1))
+    Eigen::MatrixXd r2a_;  // rate to acceleration conversion matrix ((N_-1) x (N_+1))
 
-    void calcCtrlPtsCvtMat();
-    void calcMinAccCost();
-    void calcBezierCurve();
-    void addContinuityConstraints();
-    void addDynamicalConstraints();
-    void addBoundaryConstraints();
+    void calcCtrlPtsCvtMat();    // Calculate conversion matrices for single dimension
+    void calcMinAccCost();       // Calculate minimum acceleration cost
+    void addContinuityConstraints();  // Add continuity constraints
+    void addDynamicalConstraints();   // Add dynamical constraints
+    void addBoundaryConstraints();    // Add boundary constraints
 
 public:
     typedef std::shared_ptr<YawBezierOpt> Ptr;
