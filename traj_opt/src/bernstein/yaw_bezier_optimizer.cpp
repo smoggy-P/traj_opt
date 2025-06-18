@@ -62,10 +62,6 @@ void YawBezierOpt::calcCtrlPtsCvtMat() {
         r2a_(i, i + 1) = (N_ - 1);
         r2a_(i, i + 2) = 0;  // Last column is zero
     }
-    
-    ROS_INFO("Conversion matrices:");
-    ROS_INFO("  y2r_: %d x %d", y2r_.rows(), y2r_.cols());
-    ROS_INFO("  r2a_: %d x %d", r2a_.rows(), r2a_.cols());
 }
 
 void YawBezierOpt::calcMinAccCost() {
@@ -82,12 +78,12 @@ void YawBezierOpt::calcMinAccCost() {
 void YawBezierOpt::addBoundaryConstraints() {
     // Add start position and velocity constraints
     Eigen::MatrixXd A_start = Eigen::MatrixXd::Zero(2, DM_);
-    A_start.block(0, 0, 1, N_ + 1) = Eigen::VectorXd::Ones(N_ + 1).transpose();
+    A_start.block(0, 0, 1, 1) = Eigen::VectorXd::Ones(1);
     A_start.block(1, 0, 1, N_ + 1) = y2r_.row(0);
     
     // Add end position and velocity constraints
     Eigen::MatrixXd A_end = Eigen::MatrixXd::Zero(2, DM_);
-    A_end.block(0, DM_ - (N_ + 1), 1, N_ + 1) = Eigen::VectorXd::Ones(N_ + 1).transpose();
+    A_end.block(0, DM_ - 1, 1, 1) = Eigen::VectorXd::Ones(1);
     A_end.block(1, DM_ - (N_ + 1), 1, N_ + 1) = y2r_.row(0);
     
     // Combine constraints
