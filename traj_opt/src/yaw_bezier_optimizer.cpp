@@ -4,8 +4,8 @@ namespace traj_opt {
 
 void YawBezierOpt::setup(const double start_yaw,
                         const double start_yaw_rate,
-                        const double end_yaw,
-                        const double end_yaw_rate,
+                        const std::vector<double>& end_yaws,
+                        const std::vector<double>& end_yaw_rates,
                         const std::vector<double>& time_allocation,
                         const double max_yaw_rate,
                         const double max_yaw_acc) {
@@ -17,11 +17,16 @@ void YawBezierOpt::setup(const double start_yaw,
     // Initialize boundary conditions for single dimension
     ROS_INFO("Setting up yaw optimization:");
     ROS_INFO("  Start yaw: %f, Start rate: %f", start_yaw, start_yaw_rate);
-    ROS_INFO("  End yaw: %f, End rate: %f", end_yaw, end_yaw_rate);
+    for (int i = 0; i < end_yaws.size(); i++) {
+        ROS_INFO("  End yaw: %f, End rate: %f", end_yaws[i], end_yaw_rates[i]);
+    }
     ROS_INFO("  Segments: %d, Order: %d", M_, N_);
     
     init_ << start_yaw, start_yaw_rate;
-    goal_ << end_yaw, end_yaw_rate;
+    goals_.clear();
+    for (int i = 0; i < end_yaws.size(); i++) {
+        goals_.push_back(Eigen::Vector2d(end_yaws[i], end_yaw_rates[i]));
+    }
     
     // Calculate dimension of optimization problem
     DM_ = M_ * (N_ + 1);  // Total number of control points
@@ -97,18 +102,48 @@ void YawBezierOpt::addBoundaryConstraints() {
     ub_new << ub_,
              init_(0),  // Start yaw
              init_(1),  // Start yaw rate
-             goal_(0),  // End yaw
-             goal_(1);  // End yaw rate
+             goals_[goals_.size() - 1](0),  // End yaw
+             goals_[goals_.size() - 1](1);  // End yaw rate
 
     lb_new << lb_,
              init_(0),  // Start yaw
              init_(1),  // Start yaw rate
-             goal_(0),  // End yaw
-             goal_(1);  // End yaw rate
+             goals_[goals_.size() - 1](0),  // End yaw
+             goals_[goals_.size() - 1](1);  // End yaw rate
              
     A_ = A_new;
     ub_ = ub_new;
     lb_ = lb_new;
+
+
+    // Add constraints for each waypoint
+    Eigen::MatrixXd A_waypoint = Eigen::MatrixXd::Zero(goals_.size(), DM_);
+    Eigen::VectorXd ub_waypoint = Eigen::VectorXd::Zero(goals_.size());
+    Eigen::VectorXd lb_waypoint = Eigen::VectorXd::Zero(goals_.size());
+    for (int i = 0; i < goals_.size() - 1; i++) {
+        int idx1 = i * (N_ + 1);
+        // int idx2 = (i + 1) * (N_ + 1);
+        A_waypoint(i, idx1 + N_) = 1.0;
+        // A_waypoint(2 * i + 1, idx1 + N_ - 1) = y2r_(0, N_ - 1);
+        ub_waypoint(i) = goals_[i](0);
+        lb_waypoint(i) = goals_[i](0);
+    }
+
+    Eigen::MatrixXd A_new_waypoint(A_.rows() + A_waypoint.rows(), DM_);
+    Eigen::VectorXd ub_new_waypoint(ub_.size() + ub_waypoint.size());
+    Eigen::VectorXd lb_new_waypoint(lb_.size() + lb_waypoint.size());
+    A_new_waypoint << A_,
+             A_waypoint;
+        
+    ub_new_waypoint << ub_,
+             ub_waypoint;
+    lb_new_waypoint << lb_,
+             lb_waypoint;
+             
+    A_ = A_new_waypoint;
+    ub_ = ub_new_waypoint;
+    lb_ = lb_new_waypoint;
+    
 }
 
 void YawBezierOpt::addContinuityConstraints() {

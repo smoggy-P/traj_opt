@@ -41,8 +41,8 @@ public:
     /* Main API */
     void setup(const double start_yaw,              // Initial yaw angle
               const double start_yaw_rate,          // Initial yaw rate
-              const double end_yaw,                 // Final yaw angle
-              const double end_yaw_rate,            // Final yaw rate
+              const std::vector<double>& end_yaws,  // Final yaw angles
+              const std::vector<double>& end_yaw_rates,  // Final yaw rates
               const std::vector<double>& time_allocation,  // Time allocation for each segment
               const double max_yaw_rate = 1.0,      // Maximum yaw rate constraint
               const double max_yaw_acc = 1.0);      // Maximum yaw acceleration constraint
@@ -67,7 +67,8 @@ private:
     double max_yaw_acc_;
 
     std::vector<double> t_;            // time allocation
-    Eigen::Vector2d init_, goal_;      // [yaw; yaw_rate] for single dimension
+    Eigen::Vector2d init_;      // [yaw; yaw_rate] for single dimension
+    std::vector<Eigen::Vector2d> goals_;  
 
     Eigen::MatrixXd Q_;   // cost matrix for minimum acceleration
     Eigen::MatrixXd A_;   // constraint matrix
