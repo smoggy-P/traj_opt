@@ -86,7 +86,7 @@ public:
 
         pSettings->eps_abs = eps_abs;
         pSettings->eps_rel = eps_rel;
-        pSettings->verbose = true;
+        pSettings->verbose = false;
 
         c_int exitflag = osqp_setup(&pWork, pData, pSettings);
 

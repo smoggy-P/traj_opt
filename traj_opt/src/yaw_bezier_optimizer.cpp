@@ -18,7 +18,7 @@ void YawBezierOpt::setup(const double start_yaw,
     ROS_INFO("Setting up yaw optimization:");
     ROS_INFO("  Start yaw: %f, Start rate: %f", start_yaw, start_yaw_rate);
     for (int i = 0; i < end_yaws.size(); i++) {
-        ROS_INFO("  End yaw: %f, End rate: %f", end_yaws[i], end_yaw_rates[i]);
+        ROS_INFO("waypoint %d: %f", i, end_yaws[i]);
     }
     ROS_INFO("  Segments: %d, Order: %d", M_, N_);
     
