@@ -15,12 +15,9 @@ void YawBezierOpt::setup(const double start_yaw,
     max_yaw_acc_ = max_yaw_acc;
     
     // Initialize boundary conditions for single dimension
-    ROS_INFO("Setting up yaw optimization:");
-    ROS_INFO("  Start yaw: %f, Start rate: %f", start_yaw, start_yaw_rate);
     for (int i = 0; i < end_yaws.size(); i++) {
-        ROS_INFO("waypoint %d: %f", i, end_yaws[i]);
+        ROS_INFO("yaw waypoint %d: %f", i, end_yaws[i]);
     }
-    ROS_INFO("  Segments: %d, Order: %d", M_, N_);
     
     init_ << start_yaw, start_yaw_rate;
     goals_.clear();
@@ -30,7 +27,6 @@ void YawBezierOpt::setup(const double start_yaw,
     
     // Calculate dimension of optimization problem
     DM_ = M_ * (N_ + 1);  // Total number of control points
-    ROS_INFO("  Total control points: %d", DM_);
     
     // Initialize optimization variables
     x_ = Eigen::VectorXd::Zero(DM_);
