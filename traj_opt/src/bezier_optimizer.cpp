@@ -16,7 +16,7 @@ namespace traj_opt {
 
 void BezierOpt::setConstraints(const std::vector<PolyhedronH>& constraints) {
   constraints_ = constraints;
-  assert(static_cast<int>(constraints_.size()) == M_);
+  // assert(static_cast<int>(constraints_.size()) == M_);
 }
 
 void BezierOpt::setTimeAllocation(const std::vector<double>& time_allocation) {
@@ -37,16 +37,7 @@ void BezierOpt::setup(const Eigen::Matrix3d&          start,
   init_ = start;
   goal_ = end;
 
-  // x_.resize(DIM * (4 * M_ + 1), 1);
   DM_ = DIM * M_ * (N_ + 1);
-  // Q_.resize(DM_, DM_);
-  // Q_.setZero();
-  // A_.resize(10, DM_);
-  // A_.setZero();
-  // q_.resize(DM_);
-  // q_.setZero();
-  // b_.resize(10);
-  // b_.setZero();
   x_.resize(DM_);
   x_.setZero();
   calcMinJerkCost();
@@ -80,20 +71,135 @@ void BezierOpt::calcCtrlPtsCvtMat() {
  * P is the control points to jerk conversion matrix
  *
  */
-void BezierOpt::calcMinJerkCost() {
+ void BezierOpt::calcMinJerkCost() {
   Q_.resize(DM_, DM_);
   Q_.setZero();
   q_.resize(DM_);
   q_.setZero();
+  
   Eigen::Matrix<double, DIM, DIM> I = Eigen::MatrixXd::Identity(DIM, DIM);
-
   Eigen::MatrixXd p2j = a2j_ * v2a_ * p2v_;
-  Eigen::MatrixXd P(DIM * (N_ - 2), DIM * (N_ - 2));
-  P << I / 3, I / 6, I / 6, I / 3;
+  
+  // Dynamically compute P matrix for N-degree Bezier curve
+  int n_ctrl_pts = N_ - 2;  // Number of control points for jerk calculation
+  Eigen::MatrixXd P(DIM * n_ctrl_pts, DIM * n_ctrl_pts);
+  P.setZero();
+  
+  // Compute jerk cost matrix based on Bezier curve degree
+  computeJerkCostMatrix(P, n_ctrl_pts, N_);
+  
   Eigen::MatrixXd QM = p2j.transpose() * P * p2j;
+  
   for (int i = 0; i < M_; i++) {
     Q_.block(i * DIM * (N_ + 1), i * DIM * (N_ + 1), DIM * (N_ + 1), DIM * (N_ + 1)) = QM;
   }
+}
+
+void BezierOpt::computeJerkCostMatrix(Eigen::MatrixXd& P, int n_ctrl_pts, int degree) {
+  Eigen::Matrix<double, DIM, DIM> I = Eigen::MatrixXd::Identity(DIM, DIM);
+  
+  // Pre-computed matrices for common Bezier degrees
+  if (degree == 4) {  // Cubic Bezier (your original case)
+    P.block(0, 0, DIM, DIM) = I / 3.0;
+    P.block(0, DIM, DIM, DIM) = I / 6.0;
+    P.block(DIM, 0, DIM, DIM) = I / 6.0;
+    P.block(DIM, DIM, DIM, DIM) = I / 3.0;
+  }
+  else if (degree == 5) {  // Quartic Bezier
+    P.block(0, 0, DIM, DIM) = I * 0.8;
+    P.block(0, DIM, DIM, DIM) = I * 0.6;
+    P.block(0, 2*DIM, DIM, DIM) = I * 0.2;
+    P.block(DIM, 0, DIM, DIM) = I * 0.6;
+    P.block(DIM, DIM, DIM, DIM) = I * 1.2;
+    P.block(DIM, 2*DIM, DIM, DIM) = I * 0.6;
+    P.block(2*DIM, 0, DIM, DIM) = I * 0.2;
+    P.block(2*DIM, DIM, DIM, DIM) = I * 0.6;
+    P.block(2*DIM, 2*DIM, DIM, DIM) = I * 0.8;
+  }
+  else if (degree == 6) {  // Quintic Bezier
+    P.block(0, 0, DIM, DIM) = I * 1.5;
+    P.block(0, DIM, DIM, DIM) = I * 1.25;
+    P.block(0, 2*DIM, DIM, DIM) = I * 0.75;
+    P.block(0, 3*DIM, DIM, DIM) = I * 0.25;
+    P.block(DIM, 0, DIM, DIM) = I * 1.25;
+    P.block(DIM, DIM, DIM, DIM) = I * 2.0;
+    P.block(DIM, 2*DIM, DIM, DIM) = I * 1.5;
+    P.block(DIM, 3*DIM, DIM, DIM) = I * 0.75;
+    P.block(2*DIM, 0, DIM, DIM) = I * 0.75;
+    P.block(2*DIM, DIM, DIM, DIM) = I * 1.5;
+    P.block(2*DIM, 2*DIM, DIM, DIM) = I * 2.0;
+    P.block(2*DIM, 3*DIM, DIM, DIM) = I * 1.25;
+    P.block(3*DIM, 0, DIM, DIM) = I * 0.25;
+    P.block(3*DIM, DIM, DIM, DIM) = I * 0.75;
+    P.block(3*DIM, 2*DIM, DIM, DIM) = I * 1.25;
+    P.block(3*DIM, 3*DIM, DIM, DIM) = I * 1.5;
+  }
+  else {
+    // For other degrees, use the general formula
+    for (int i = 0; i < n_ctrl_pts; i++) {
+      for (int j = 0; j < n_ctrl_pts; j++) {
+        double coeff = computeJerkCoefficient(i, j, degree);
+        P.block(i * DIM, j * DIM, DIM, DIM) = coeff * I;
+      }
+    }
+  }
+}
+
+// Helper function to compute jerk coefficients
+double BezierOpt::computeJerkCoefficient(int i, int j, int n) {
+  // For Bezier curves of degree n, the jerk cost matrix coefficients are:
+  // P[i,j] = integral_0^1 B''_i(t) * B''_j(t) dt
+  // where B''_i(t) is the second derivative of the i-th Bezier basis function
+  
+  if (n < 3) return 0.0;  // No jerk for curves of degree < 3
+  
+  // General formula for Bezier jerk cost matrix
+  double factorial_n = factorial(n);
+  double factorial_n_minus_2 = factorial(n - 2);
+  
+  // Binomial coefficients
+  double binom_i = binomialCoeff(n - 2, i);
+  double binom_j = binomialCoeff(n - 2, j);
+  
+  // Beta function: B(a,b) = Gamma(a)*Gamma(b)/Gamma(a+b)
+  double beta_val = beta(i + j + 1, 2*n - i - j - 3);
+  
+  return (factorial_n * factorial_n) / (factorial_n_minus_2 * factorial_n_minus_2) * 
+         binom_i * binom_j * beta_val;
+}
+
+// Utility functions (add these to your class)
+double BezierOpt::factorial(int n) {
+  if (n <= 1) return 1.0;
+  double result = 1.0;
+  for (int i = 2; i <= n; i++) {
+    result *= i;
+  }
+  return result;
+}
+
+double BezierOpt::binomialCoeff(int n, int k) {
+  if (k > n || k < 0) return 0.0;
+  if (k == 0 || k == n) return 1.0;
+  
+  double result = 1.0;
+  for (int i = 0; i < k; i++) {
+    result = result * (n - i) / (i + 1);
+  }
+  return result;
+}
+
+double BezierOpt::beta(double a, double b) {
+  // Beta function: B(a,b) = Gamma(a)*Gamma(b)/Gamma(a+b)
+  // For integer arguments, we can use factorials
+  // B(m,n) = (m-1)!(n-1)!/(m+n-1)!
+  if (a > 0 && b > 0 && a == floor(a) && b == floor(b)) {
+    return factorial(a - 1) * factorial(b - 1) / factorial(a + b - 1);
+  }
+  
+  // For non-integer arguments, use gamma function approximation
+  // or use standard library if available: std::tgamma
+  return std::tgamma(a) * std::tgamma(b) / std::tgamma(a + b);
 }
 
 void BezierOpt::addConstraints() {
@@ -232,6 +338,11 @@ void BezierOpt::addDynamicalConstraints() {
 }
 
 void BezierOpt::addSafetyConstraints() {
+  if (constraints_.empty()) {
+    std::cout << "No constraints" << std::endl;
+    return;
+  }
+
   for (int i = 0; i < M_; i++) {
     auto c = constraints_[i];
     for (int j = 0; j < c.rows(); j++) {

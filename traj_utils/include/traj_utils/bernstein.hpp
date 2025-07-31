@@ -19,7 +19,7 @@
 #include <vector>
 
 namespace Bernstein {
-const int ORDER = 4;  // order of Bezier curve, default 4
+const int ORDER = 5;  // order of Bezier curve, default 4
 const int DIM   = 3;  // dimension of the trajectory
 
 class BernsteinPiece {
@@ -90,6 +90,9 @@ class BernsteinPiece {
 
   void calcCoeffMat();
   void calcCoeffMat(int n, Eigen::MatrixXd &A);
+  double binomialCoeff(int n, int k);
+  void calcCoeffMatStable();
+  void calcCoeffMatOptimized();
 
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

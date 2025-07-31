@@ -174,7 +174,7 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   convertPolytopeRepresentation(corridors, constraints);
 
   std::cout << "Goal" << std::endl << goal_state << std::endl;
-  _ptr_bezier_opt.reset(new traj_opt::BezierOpt());
+  _ptr_bezier_opt.reset(new traj_opt::BezierOpt(5));
   _ptr_bezier_opt->setup(init_state, goal_state, time_alloc, constraints, 10.0, 10.0);
   ros::Time tic    = ros::Time::now();
   bool      status = _ptr_bezier_opt->optimize();

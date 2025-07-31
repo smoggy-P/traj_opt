@@ -57,6 +57,12 @@ class BezierOpt {
   void calcMinJerkCost();
   void calcBezierCurve();
 
+  void computeJerkCostMatrix(Eigen::MatrixXd& P, int n_ctrl_pts, int degree);
+  double computeJerkCoefficient(int i, int j, int n);
+  double factorial(int n);
+  double binomialCoeff(int n, int k);
+  double beta(double a, double b);
+
   void setup(const Eigen::Matrix3d&          start,
              const Eigen::Matrix3d&          end,
              const std::vector<double>&      time_allocation,

@@ -61,64 +61,97 @@ Eigen::Vector3d BernsteinPiece::getAcc(double t) const {
 void BernsteinPiece::calcCoeffMat() {
   A_.resize(N_ + 1, N_ + 1);
   A_.setZero();
-  switch (N_) {
-    case 1:
-      A_ << 1, -1, 0, 1;
-      break;
-    case 2:
-      A_ << 1, -2, 1, 0, 2, -2, 0, 0, 1;
-      break;
-    case 3:
-      A_ <<
-          // clang-format off
-      1, -3, 3, 1,
-      0, 3, -6, 3,
-      0, 0, 3, -3,
-      0, 0, 0, 1;
-      // clang-format on
-      break;
-    case 4:
-      A_ <<
-          // clang-format off
-      1, -4,   6,  -4,  1,
-      0,  4, -12,  12, -4,
-      0,  0,   6, -12,  6,
-      0,  0,   0,   4, -4,
-      0,  0,   0,   0,  1;
-      // clang-format on
-      break;
+  
+  // The correct pattern based on your examples:
+  // Each row i represents the coefficients for the i-th derivative basis
+  // The pattern follows: A[i,j] = (-1)^(j-i) * C(N,j) * C(j,i) for j >= i
+  
+  for (int i = 0; i <= N_; ++i) {
+    for (int j = i; j <= N_; ++j) {
+      double sign = ((j - i) % 2 == 0) ? 1.0 : -1.0;
+      A_(i, j) = sign * binomialCoeff(N_, j) * binomialCoeff(j, i);
+    }
   }
 }
 
 void BernsteinPiece::calcCoeffMat(int n, Eigen::MatrixXd &A) {
   A.resize(n + 1, n + 1);
   A.setZero();
-  switch (n) {
-    case 1:
-      A << 1, -1, 0, 1;
-      break;
-    case 2:
-      A << 1, -2, 1, 0, 2, -2, 0, 0, 1;
-      break;
-    case 3:
-      A <<
-          // clang-format off
-      1, -3, 3, 1,
-      0, 3, -6, 3,
-      0, 0, 3, -3,
-      0, 0, 0, 1;
-      // clang-format on
-      break;
-    case 4:
-      A <<
-          // clang-format off
-      1, -4,   6,  -4,  1,
-      0,  4, -12,  12, -4,
-      0,  0,   6, -12,  6,
-      0,  0,   0,   4, -4,
-      0,  0,   0,   0,  1;
-      // clang-format on
-      break;
+  
+  for (int i = 0; i <= n; ++i) {
+    for (int j = i; j <= n; ++j) {
+      double sign = ((j - i) % 2 == 0) ? 1.0 : -1.0;
+      A(i, j) = sign * binomialCoeff(n, j) * binomialCoeff(j, i);
+    }
+  }
+  std::cout << "A: " << A << std::endl;
+}
+
+// Helper function to calculate binomial coefficients
+double BernsteinPiece::binomialCoeff(int n, int k) {
+  if (k > n || k < 0) return 0.0;
+  if (k == 0 || k == n) return 1.0;
+  
+  // Use the multiplicative formula to avoid large factorials
+  double result = 1.0;
+  for (int i = 0; i < k; ++i) {
+    result = result * (n - i) / (i + 1);
+  }
+  return result;
+}
+
+// Alternative implementation using Pascal's triangle for better numerical stability
+void BernsteinPiece::calcCoeffMatStable() {
+  A_.resize(N_ + 1, N_ + 1);
+  A_.setZero();
+  
+  // Pre-compute binomial coefficients using Pascal's triangle
+  std::vector<std::vector<long long>> binomial(N_ + 1, std::vector<long long>(N_ + 1, 0));
+  
+  for (int n = 0; n <= N_; ++n) {
+    binomial[n][0] = 1;
+    for (int k = 1; k <= n; ++k) {
+      binomial[n][k] = binomial[n-1][k-1] + binomial[n-1][k];
+    }
+  }
+  
+  // Fill the coefficient matrix
+  for (int i = 0; i <= N_; ++i) {
+    for (int j = i; j <= N_; ++j) {
+      double sign = ((j - i) % 2 == 0) ? 1.0 : -1.0;
+      A_(i, j) = sign * binomial[N_][i] * binomial[i][j];
+    }
+  }
+}
+
+// Optimized version that avoids recomputing binomial coefficients
+void BernsteinPiece::calcCoeffMatOptimized() {
+  A_.resize(N_ + 1, N_ + 1);
+  A_.setZero();
+  
+  // Use dynamic programming approach
+  std::vector<double> C_N_i(N_ + 1);  // C(N,i) for i = 0..N
+  std::vector<double> C_i_j(N_ + 1);  // C(i,j) for j = 0..i (reused for each i)
+  
+  // Compute C(N,i) for all i
+  C_N_i[0] = 1.0;
+  for (int i = 1; i <= N_; ++i) {
+    C_N_i[i] = C_N_i[i-1] * (N_ - i + 1) / i;
+  }
+  
+  // Fill matrix row by row
+  for (int i = 0; i <= N_; ++i) {
+    // Compute C(i,j) for j = 0..i
+    C_i_j[0] = 1.0;
+    for (int j = 1; j <= i; ++j) {
+      C_i_j[j] = C_i_j[j-1] * (i - j + 1) / j;
+    }
+    
+    // Fill row i of the matrix
+    for (int j = i; j <= N_; ++j) {
+      double sign = ((j - i) % 2 == 0) ? 1.0 : -1.0;
+      A_(i, j) = sign * C_N_i[i] * C_i_j[j];
+    }
   }
 }
 
