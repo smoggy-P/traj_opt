@@ -84,7 +84,6 @@ void BernsteinPiece::calcCoeffMat(int n, Eigen::MatrixXd &A) {
       A(i, j) = sign * binomialCoeff(n, j) * binomialCoeff(j, i);
     }
   }
-  std::cout << "A: " << A << std::endl;
 }
 
 // Helper function to calculate binomial coefficients

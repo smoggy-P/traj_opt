@@ -270,11 +270,6 @@ bool YawBezierOpt::optimize() {
     // Solve using IOSQP
     IOSQP solver;
     Eigen::VectorXd q = Eigen::VectorXd::Zero(DM_);
-    ROS_INFO("size of Q_sparse: %d x %d", Q_sparse.rows(), Q_sparse.cols());
-    ROS_INFO("size of A_sparse: %d x %d", A_sparse.rows(), A_sparse.cols());
-    ROS_INFO("size of q: %d", q.size());
-    ROS_INFO("size of lb: %d", lb_.size());
-    ROS_INFO("size of ub: %d", ub_.size());
     c_int flag = solver.setMats(Q_sparse, q, A_sparse, lb_, ub_, 1e-4, 1e-4);
     if (flag != 0) {
         ROS_ERROR("Failed to setup IOSQP solver");
