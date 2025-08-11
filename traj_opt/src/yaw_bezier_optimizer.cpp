@@ -16,7 +16,7 @@ void YawBezierOpt::setup(const double start_yaw,
     
     // Initialize boundary conditions for single dimension
     for (int i = 0; i < end_yaws.size(); i++) {
-        ROS_INFO("yaw waypoint %d: %f", i, end_yaws[i]);
+        // ROS_INFO("yaw waypoint %d: %f", i, end_yaws[i]);
     }
     
     init_ << start_yaw, start_yaw_rate;
