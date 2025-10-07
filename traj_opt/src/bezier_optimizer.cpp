@@ -271,11 +271,11 @@ void BezierOpt::addContinuityConstraints() {
     idx_ += DIM;
   }
   /* final velocity */
-  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM * 2, DIM, DIM) = -N_ * I;
-  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM)     = N_ * I;
-  b_.segment(idx_, DIM)                                   = goal_.row(1) * tM;
-  lb_.segment(idx_, DIM)                                  = goal_.row(1) * tM;
-  idx_ += DIM;
+  // A_.block(idx_, M_ * DIM * (N_ + 1) - DIM * 2, DIM, DIM) = -N_ * I;
+  // A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM)     = N_ * I;
+  // b_.segment(idx_, DIM)                                   = goal_.row(1) * tM;
+  // lb_.segment(idx_, DIM)                                  = goal_.row(1) * tM;
+  // idx_ += DIM;
 
   /* acceleration continuity */
   constexpr int                    DIM3 = DIM * 3;
@@ -296,10 +296,10 @@ void BezierOpt::addContinuityConstraints() {
     idx_ += DIM;
   }
   /* final acceleration */
-  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM3, DIM, DIM3) = p2a;
-  b_.segment(idx_, DIM)                                 = goal_.row(2) * tM * tM;
-  lb_.segment(idx_, DIM)                                = goal_.row(2) * tM * tM;
-  idx_ += DIM;
+  // A_.block(idx_, M_ * DIM * (N_ + 1) - DIM3, DIM, DIM3) = p2a;
+  // b_.segment(idx_, DIM)                                 = goal_.row(2) * tM * tM;
+  // lb_.segment(idx_, DIM)                                = goal_.row(2) * tM * tM;
+  // idx_ += DIM;
 
   std::cout << "idx: " << idx_ << std::endl;
 }
