@@ -271,11 +271,11 @@ void BezierOpt::addContinuityConstraints() {
     idx_ += DIM;
   }
   /* final velocity */
-  // A_.block(idx_, M_ * DIM * (N_ + 1) - DIM * 2, DIM, DIM) = -N_ * I;
-  // A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM)     = N_ * I;
-  // b_.segment(idx_, DIM)                                   = goal_.row(1) * tM;
-  // lb_.segment(idx_, DIM)                                  = goal_.row(1) * tM;
-  // idx_ += DIM;
+  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM * 2, DIM, DIM) = -N_ * I;
+  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM)     = N_ * I;
+  b_.segment(idx_, DIM)                                   = goal_.row(1) * tM;
+  lb_.segment(idx_, DIM)                                  = goal_.row(1) * tM;
+  idx_ += DIM;
 
   /* acceleration continuity */
   constexpr int                    DIM3 = DIM * 3;
