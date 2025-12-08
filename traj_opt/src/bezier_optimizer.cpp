@@ -296,10 +296,10 @@ void BezierOpt::addContinuityConstraints() {
     idx_ += DIM;
   }
   /* final acceleration */
-  // A_.block(idx_, M_ * DIM * (N_ + 1) - DIM3, DIM, DIM3) = p2a;
-  // b_.segment(idx_, DIM)                                 = goal_.row(2) * tM * tM;
-  // lb_.segment(idx_, DIM)                                = goal_.row(2) * tM * tM;
-  // idx_ += DIM;
+  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM3, DIM, DIM3) = p2a;
+  b_.segment(idx_, DIM)                                 = goal_.row(2) * tM * tM;
+  lb_.segment(idx_, DIM)                                = goal_.row(2) * tM * tM;
+  idx_ += DIM;
 
   std::cout << "idx: " << idx_ << std::endl;
 }
@@ -369,7 +369,7 @@ bool BezierOpt::optimize() {
 
   Eigen::VectorXd lb = Eigen::VectorXd::Constant(x_.size(), -OSQP_INFTY);
 
-  c_int flag = solver.setMats(Q, q_, A, lb_, b_, 1e-3, 1e-3);
+  c_int flag = solver.setMats(Q, q_, A, lb_, b_, 1e-6, 1e-6);
 
   if (flag != 0) {
     std::cout << "Problem non-convex. " << std::endl;
