@@ -30,8 +30,19 @@ void BezierOpt::setup(const Eigen::Matrix3d&          start,
                       const std::vector<PolyhedronH>& constraints,
                       const double&                   max_vel,
                       const double&                   max_acc) {
-  max_vel_ = max_vel;
-  max_acc_ = max_acc;
+  setup(start, end, time_allocation, constraints, max_vel, max_acc, false);
+}
+
+void BezierOpt::setup(const Eigen::Matrix3d&          start,
+                      const Eigen::Matrix3d&          end,
+                      const std::vector<double>&      time_allocation,
+                      const std::vector<PolyhedronH>& constraints,
+                      const double&                   max_vel,
+                      const double&                   max_acc,
+                      bool                             enforce_final_dynamics) {
+  enforce_final_dynamics_ = enforce_final_dynamics;
+  max_vel_                = max_vel;
+  max_acc_                = max_acc;
   setTimeAllocation(time_allocation);
   setConstraints(constraints);
   init_ = start;
@@ -208,8 +219,11 @@ void BezierOpt::addConstraints() {
     num_const += c.rows();
   }
   num_const *= N_ + 1;                                    // all points inside the polyhedron
-  int num_continuous = (1 + M_) * DIM * 3;                // continuous between segments
-  int num_dynamical  = M_ * (DIM * N_ + DIM * (N_ - 1));  // maximum velocity and acceleration
+  int position_rows  = (1 + M_) * DIM;
+  int velocity_rows  = (M_ + (enforce_final_dynamics_ ? 1 : 0)) * DIM;
+  int accel_rows     = (M_ + (enforce_final_dynamics_ ? 1 : 0)) * DIM;
+  int num_continuous = position_rows + velocity_rows + accel_rows;  // continuous between segments
+  int num_dynamical  = M_ * (DIM * N_ + DIM * (N_ - 1));            // maximum velocity and acceleration
   int num            = num_const + num_continuous + num_dynamical;
   std::cout << "num: " << num_continuous << " | " << num_const << " | " << num_dynamical << " || "
             << num << std::endl;
@@ -271,11 +285,13 @@ void BezierOpt::addContinuityConstraints() {
     idx_ += DIM;
   }
   /* final velocity */
-  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM * 2, DIM, DIM) = -N_ * I;
-  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM)     = N_ * I;
-  b_.segment(idx_, DIM)                                   = goal_.row(1) * tM;
-  lb_.segment(idx_, DIM)                                  = goal_.row(1) * tM;
-  idx_ += DIM;
+  if (enforce_final_dynamics_) {
+    A_.block(idx_, M_ * DIM * (N_ + 1) - DIM * 2, DIM, DIM) = -N_ * I;
+    A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM)     = N_ * I;
+    b_.segment(idx_, DIM)                                   = goal_.row(1) * tM;
+    lb_.segment(idx_, DIM)                                  = goal_.row(1) * tM;
+    idx_ += DIM;
+  }
 
   /* acceleration continuity */
   constexpr int                    DIM3 = DIM * 3;
@@ -296,10 +312,12 @@ void BezierOpt::addContinuityConstraints() {
     idx_ += DIM;
   }
   /* final acceleration */
-  A_.block(idx_, M_ * DIM * (N_ + 1) - DIM3, DIM, DIM3) = p2a;
-  b_.segment(idx_, DIM)                                 = goal_.row(2) * tM * tM;
-  lb_.segment(idx_, DIM)                                = goal_.row(2) * tM * tM;
-  idx_ += DIM;
+  if (enforce_final_dynamics_) {
+    A_.block(idx_, M_ * DIM * (N_ + 1) - DIM3, DIM, DIM3) = p2a;
+    b_.segment(idx_, DIM)                                 = goal_.row(2) * tM * tM;
+    lb_.segment(idx_, DIM)                                = goal_.row(2) * tM * tM;
+    idx_ += DIM;
+  }
 
   std::cout << "idx: " << idx_ << std::endl;
 }

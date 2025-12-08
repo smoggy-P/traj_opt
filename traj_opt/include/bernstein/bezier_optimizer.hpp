@@ -69,6 +69,13 @@ class BezierOpt {
              const std::vector<PolyhedronH>& constraints,
              const double&                   max_vel = 3.0,
              const double&                   max_acc = 3.0);
+  void setup(const Eigen::Matrix3d&          start,
+             const Eigen::Matrix3d&          end,
+             const std::vector<double>&      time_allocation,
+             const std::vector<PolyhedronH>& constraints,
+             const double&                   max_vel,
+             const double&                   max_acc,
+             bool                             enforce_final_dynamics);
   bool optimize();
 
   /* getters */
@@ -113,6 +120,7 @@ class BezierOpt {
   Eigen::VectorXd ub_;  // bound vector
   Eigen::VectorXd lb_;  // bound vector
   Eigen::VectorXd x_;   // vector of control points
+  bool            enforce_final_dynamics_ = true;
 
   Eigen::MatrixXd p2v_;  // position control points to velocity control points
   Eigen::MatrixXd v2a_;  // velocity control points to acceleration control points
