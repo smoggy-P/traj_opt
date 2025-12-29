@@ -10,6 +10,8 @@
  */
 
 #include "bernstein/bezier_optimizer.hpp"
+#include <cmath>
+#include <limits>
 using namespace Bernstein;
 
 namespace traj_opt {
@@ -233,6 +235,8 @@ void BezierOpt::addConstraints() {
   b_.setZero();
   lb_.resize(num);
   lb_.setZero();
+  constraint_labels_.clear();
+  constraint_labels_.reserve(num);
   idx_ = 0;
   addContinuityConstraints();
   addDynamicalConstraints();
@@ -251,18 +255,28 @@ void BezierOpt::addContinuityConstraints() {
   A_.block(idx_, 0, DIM, DIM) = I;
   b_.segment(idx_, DIM)       = init_.row(0);
   lb_.segment(idx_, DIM)      = init_.row(0);
+  for (int d = 0; d < DIM; ++d) {
+    constraint_labels_.push_back("continuity:init_pos:dim" + std::to_string(d));
+  }
   idx_ += DIM;
   for (int i = 1; i < M_; i++) {
     A_.block(idx_, i * DIM * (N_ + 1), DIM, DIM)       = I;
     A_.block(idx_, i * DIM * (N_ + 1) - DIM, DIM, DIM) = -I;
     b_.segment(idx_, DIM)                              = Eigen::Vector3d::Zero();
     lb_.segment(idx_, DIM)                             = Eigen::Vector3d::Zero();
+    for (int d = 0; d < DIM; ++d) {
+      constraint_labels_.push_back("continuity:seg" + std::to_string(i - 1) + "->" +
+                                   std::to_string(i) + ":pos:dim" + std::to_string(d));
+    }
     idx_ += DIM;
   }
   /* final position */
   A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM) = I;
   b_.segment(idx_, DIM)                               = goal_.row(0);
   lb_.segment(idx_, DIM)                              = goal_.row(0);
+  for (int d = 0; d < DIM; ++d) {
+    constraint_labels_.push_back("continuity:final_pos:dim" + std::to_string(d));
+  }
   idx_ += DIM;
 
   /* velocity continuity */
@@ -271,6 +285,9 @@ void BezierOpt::addContinuityConstraints() {
   A_.block(idx_, DIM, DIM, DIM) = N_ * I;
   b_.segment(idx_, DIM)         = init_.row(1) * t0;
   lb_.segment(idx_, DIM)        = init_.row(1) * t0;
+  for (int d = 0; d < DIM; ++d) {
+    constraint_labels_.push_back("continuity:init_vel:dim" + std::to_string(d));
+  }
   idx_ += DIM;
   for (int i = 1; i < M_; i++) {
     double t1  = t_[i];
@@ -282,6 +299,10 @@ void BezierOpt::addContinuityConstraints() {
     A_.block(idx_, i * DIM * (N_ + 1) - 2 * DIM, DIM, DIM) = N_ * I / t1_;
     b_.segment(idx_, DIM)                                  = Eigen::Vector3d::Zero();
     lb_.segment(idx_, DIM)                                 = Eigen::Vector3d::Zero();
+    for (int d = 0; d < DIM; ++d) {
+      constraint_labels_.push_back("continuity:seg" + std::to_string(i - 1) + "->" +
+                                   std::to_string(i) + ":vel:dim" + std::to_string(d));
+    }
     idx_ += DIM;
   }
   /* final velocity */
@@ -290,6 +311,9 @@ void BezierOpt::addContinuityConstraints() {
     A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM)     = N_ * I;
     b_.segment(idx_, DIM)                                   = goal_.row(1) * tM;
     lb_.segment(idx_, DIM)                                  = goal_.row(1) * tM;
+    for (int d = 0; d < DIM; ++d) {
+      constraint_labels_.push_back("continuity:final_vel:dim" + std::to_string(d));
+    }
     idx_ += DIM;
   }
 
@@ -300,6 +324,9 @@ void BezierOpt::addContinuityConstraints() {
   A_.block(idx_, 0, DIM, DIM3) = p2a;
   b_.segment(idx_, DIM)        = init_.row(2) * t0 * t0;
   lb_.segment(idx_, DIM)       = init_.row(2) * t0 * t0;
+  for (int d = 0; d < DIM; ++d) {
+    constraint_labels_.push_back("continuity:init_acc:dim" + std::to_string(d));
+  }
   idx_ += DIM;
   for (int i = 1; i < M_; i++) {
     double t2  = pow(t_[i], 2);
@@ -309,6 +336,10 @@ void BezierOpt::addContinuityConstraints() {
     A_.block(idx_, i * DIM * (N_ + 1) - DIM3, DIM, DIM3) = -p2a / t2_;
     b_.segment(idx_, DIM)                                = Eigen::Vector3d::Zero();
     lb_.segment(idx_, DIM)                               = Eigen::Vector3d::Zero();
+    for (int d = 0; d < DIM; ++d) {
+      constraint_labels_.push_back("continuity:seg" + std::to_string(i - 1) + "->" +
+                                   std::to_string(i) + ":acc:dim" + std::to_string(d));
+    }
     idx_ += DIM;
   }
   /* final acceleration */
@@ -316,6 +347,9 @@ void BezierOpt::addContinuityConstraints() {
     A_.block(idx_, M_ * DIM * (N_ + 1) - DIM3, DIM, DIM3) = p2a;
     b_.segment(idx_, DIM)                                 = goal_.row(2) * tM * tM;
     lb_.segment(idx_, DIM)                                = goal_.row(2) * tM * tM;
+    for (int d = 0; d < DIM; ++d) {
+      constraint_labels_.push_back("continuity:final_acc:dim" + std::to_string(d));
+    }
     idx_ += DIM;
   }
 
@@ -338,6 +372,10 @@ void BezierOpt::addDynamicalConstraints() {
       A_.block(idx_, i * DIM * (N_ + 1) + j * DIM, DIM, DIM2) = p2v;
       b_.segment(idx_, DIM)                                   = max_vel_ * ones * t;
       lb_.segment(idx_, DIM)                                  = -max_vel_ * ones * t;
+      for (int d = 0; d < DIM; ++d) {
+        constraint_labels_.push_back("dynamical:seg" + std::to_string(i) + ":vel:cp" +
+                                     std::to_string(j) + ":dim" + std::to_string(d));
+      }
       idx_ += DIM;
     }
   }
@@ -349,6 +387,10 @@ void BezierOpt::addDynamicalConstraints() {
       A_.block(idx_, i * DIM * (N_ + 1) + j * DIM, DIM, DIM3) = p2a;
       b_.segment(idx_, DIM)                                   = max_acc_ * ones * t * t;
       lb_.segment(idx_, DIM)                                  = -max_acc_ * ones * t * t;
+      for (int d = 0; d < DIM; ++d) {
+        constraint_labels_.push_back("dynamical:seg" + std::to_string(i) + ":acc:cp" +
+                                     std::to_string(j) + ":dim" + std::to_string(d));
+      }
       idx_ += DIM;
     }
   }
@@ -373,6 +415,8 @@ void BezierOpt::addSafetyConstraints() {
 
         b_[idx_]  = -p[3];
         lb_[idx_] = -OSQP_INFTY;
+        constraint_labels_.push_back("safety:seg" + std::to_string(i) + ":plane" +
+                                     std::to_string(j) + ":cp" + std::to_string(n));
         idx_++;
       }
     }
@@ -387,7 +431,7 @@ bool BezierOpt::optimize() {
 
   Eigen::VectorXd lb = Eigen::VectorXd::Constant(x_.size(), -OSQP_INFTY);
 
-  c_int flag = solver.setMats(Q, q_, A, lb_, b_, 1e-6, 1e-6);
+  c_int flag = solver.setMats(Q, q_, A, lb_, b_, 1e-3, 1e-3);
 
   if (flag != 0) {
     std::cout << "Problem non-convex. " << std::endl;
@@ -400,6 +444,11 @@ bool BezierOpt::optimize() {
     if (status == 1 || status == 2) {
       return true;
     } else {
+      if (status == -3) {
+        std::cout << "[BezierOpt][debug] OSQP reports primal infeasible (status -3). "
+                  << "Dumping suspect constraints..." << std::endl;
+        debugDumpInfeasibleConstraints();
+      }
       return false;
     }
   }
@@ -408,6 +457,155 @@ bool BezierOpt::optimize() {
 void BezierOpt::calcBezierCurve() {
   Eigen::MatrixXd p = getOptCtrlPtsMat();
   bc_.reset(new BezierCurve(t_, p));
+}
+
+void BezierOpt::debugDumpInfeasibleConstraints() const {
+  const double zero_row_eps = 1e-12;
+  const double bound_eps    = 1e-9;
+
+  auto labelForRow = [&](int row) -> std::string {
+    if (row >= 0 && row < static_cast<int>(constraint_labels_.size())) {
+      return constraint_labels_[row];
+    }
+    return "<unlabeled_row_" + std::to_string(row) + ">";
+  };
+
+  auto isSingleVarConstraint = [&](int row, int& col_out, double& coeff_out) -> bool {
+    int nz_col = -1;
+    double nz_val = 0.0;
+    for (int c = 0; c < A_.cols(); ++c) {
+      double v = A_(row, c);
+      if (std::abs(v) > 1e-9) {
+        if (nz_col != -1) return false;  // more than one non-zero
+        nz_col = c;
+        nz_val = v;
+      }
+    }
+    if (nz_col == -1) return false;
+    col_out = nz_col;
+    coeff_out = nz_val;
+    return true;
+  };
+
+  std::cout << "[BezierOpt][debug] total constraints: " << A_.rows()
+            << ", variables: " << A_.cols() << std::endl;
+
+  // Quick sanity on time allocation
+  double t_min = std::numeric_limits<double>::infinity();
+  double t_max = 0.0;
+  for (double ti : t_) {
+    t_min = std::min(t_min, ti);
+    t_max = std::max(t_max, ti);
+  }
+  std::cout << "[BezierOpt][debug] time allocation min/max: " << t_min << " / " << t_max
+            << std::endl;
+
+  int bad_bounds_cnt   = 0;
+  int zero_row_cnt     = 0;
+  int nan_inf_cnt      = 0;
+  int equality_cnt     = 0;
+  int inequality_cnt   = 0;
+  int single_var_cnt   = 0;
+
+  // Track per-variable feasible interval if constraint only touches one variable
+  std::vector<double> var_lb(A_.cols(), -std::numeric_limits<double>::infinity());
+  std::vector<double> var_ub(A_.cols(), std::numeric_limits<double>::infinity());
+  for (int r = 0; r < A_.rows(); ++r) {
+    double lb = (r < lb_.size()) ? lb_[r] : std::numeric_limits<double>::quiet_NaN();
+    double ub = (r < b_.size()) ? b_[r] : std::numeric_limits<double>::quiet_NaN();
+    double norm_row = A_.row(r).norm();
+
+    bool has_nan_inf = !std::isfinite(lb) || !std::isfinite(ub) ||
+                       !A_.row(r).array().isFinite().all();
+    bool bound_conflict = (lb > ub + bound_eps);
+    bool zero_row_conflict =
+        (norm_row < zero_row_eps) && (std::abs(lb) > bound_eps || std::abs(ub) > bound_eps);
+    bool equality_row = std::abs(lb - ub) <= bound_eps;
+    equality_cnt += equality_row ? 1 : 0;
+    inequality_cnt += equality_row ? 0 : 1;
+
+    if (has_nan_inf || bound_conflict || zero_row_conflict) {
+      std::cout << "[BezierOpt][debug] row " << r << " (" << labelForRow(r) << ") "
+                << "lb=" << lb << ", ub=" << ub
+                << ", ||A_row||=" << norm_row;
+      if (bound_conflict) std::cout << " [lb>ub]";
+      if (zero_row_conflict) std::cout << " [zero_row_nonzero_bound]";
+      if (has_nan_inf) std::cout << " [nan/inf]";
+      std::cout << std::endl;
+
+      // Print a compact view of non-zero coefficients to help localize variables
+      std::cout << "  nz coefficients (col:value): ";
+      int printed = 0;
+      for (int c = 0; c < A_.cols(); ++c) {
+        double v = A_(r, c);
+        if (std::abs(v) > 1e-9) {
+          std::cout << c << ":" << v << " ";
+          if (++printed >= 8) break;  // avoid flooding
+        }
+      }
+      if (printed == 0) std::cout << "<all zero>";
+      std::cout << std::endl;
+    }
+
+    bad_bounds_cnt += bound_conflict ? 1 : 0;
+    zero_row_cnt   += zero_row_conflict ? 1 : 0;
+    nan_inf_cnt    += has_nan_inf ? 1 : 0;
+
+    int col = -1;
+    double coeff = 0.0;
+    if (isSingleVarConstraint(r, col, coeff)) {
+      single_var_cnt++;
+      double c_lb = lb / coeff;
+      double c_ub = ub / coeff;
+      if (coeff < 0) std::swap(c_lb, c_ub);
+      var_lb[col] = std::max(var_lb[col], c_lb);
+      var_ub[col] = std::min(var_ub[col], c_ub);
+    }
+  }
+
+  std::cout << "[BezierOpt][debug] summary: "
+            << "bad_bounds=" << bad_bounds_cnt
+            << ", zero_row_nonzero_bound=" << zero_row_cnt
+            << ", nan_or_inf=" << nan_inf_cnt
+            << ", equality_rows=" << equality_cnt
+            << ", inequality_rows=" << inequality_cnt
+            << ", single_var_rows=" << single_var_cnt
+            << std::endl;
+
+  // Report per-variable interval conflicts (only derived from single-var constraints)
+  for (int c = 0; c < A_.cols(); ++c) {
+    if (var_lb[c] > var_ub[c] + bound_eps) {
+      std::cout << "[BezierOpt][debug] variable " << c
+                << " has conflicting single-var bounds: "
+                << "[" << var_lb[c] << ", " << var_ub[c] << "]" << std::endl;
+    }
+  }
+
+  // Check for obvious conflicting duplicate rows (same coefficients, disjoint bounds)
+  const double same_row_eps = 1e-8;
+  int duplicate_conflicts = 0;
+  for (int r1 = 0; r1 < A_.rows(); ++r1) {
+    for (int r2 = r1 + 1; r2 < A_.rows(); ++r2) {
+      if ((A_.row(r1) - A_.row(r2)).norm() < same_row_eps) {
+        double lb1 = lb_[r1], ub1 = b_[r1];
+        double lb2 = lb_[r2], ub2 = b_[r2];
+        if (lb1 > ub2 + bound_eps || lb2 > ub1 + bound_eps) {
+          std::cout << "[BezierOpt][debug] duplicate-row conflict between "
+                    << r1 << " (" << labelForRow(r1) << ") and "
+                    << r2 << " (" << labelForRow(r2) << ") "
+                    << "bounds [" << lb1 << "," << ub1 << "] vs ["
+                    << lb2 << "," << ub2 << "]" << std::endl;
+          duplicate_conflicts++;
+          if (duplicate_conflicts > 8) {
+            std::cout << "[BezierOpt][debug] ... more duplicate conflicts omitted"
+                      << std::endl;
+            r1 = A_.rows();  // break outer
+            break;
+          }
+        }
+      }
+    }
+  }
 }
 
 // bool BezierOpt::optimizeSDQP() {

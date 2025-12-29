@@ -16,6 +16,7 @@
 
 #include <Eigen/Eigen>
 #include <algorithm>
+#include <string>
 #include <iostream>
 #include <memory>
 #include <traj_utils/bernstein.hpp>
@@ -56,6 +57,7 @@ class BezierOpt {
   void calcCtrlPtsCvtMat();
   void calcMinJerkCost();
   void calcBezierCurve();
+  void debugDumpInfeasibleConstraints() const;
 
   void computeJerkCostMatrix(Eigen::MatrixXd& P, int n_ctrl_pts, int degree);
   double computeJerkCoefficient(int i, int j, int n);
@@ -121,6 +123,9 @@ class BezierOpt {
   Eigen::VectorXd lb_;  // bound vector
   Eigen::VectorXd x_;   // vector of control points
   bool            enforce_final_dynamics_ = true;
+
+  // For debugging constraint construction
+  std::vector<std::string> constraint_labels_;
 
   Eigen::MatrixXd p2v_;  // position control points to velocity control points
   Eigen::MatrixXd v2a_;  // velocity control points to acceleration control points
