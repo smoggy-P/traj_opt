@@ -58,6 +58,28 @@ Eigen::Vector3d BernsteinPiece::getAcc(double t) const {
   return cpts_.transpose() * A_ * S / pow(t_, 2);
 }
 
+Eigen::Vector3d BernsteinPiece::getJrk(double t) const {
+  double          s = (t - t0_) / t_;
+  Eigen::VectorXd S;
+  S.resize(N_ + 1);
+  S.setZero();
+  for (int i = 3; i <= N_; i++) {
+    S(i) = i * (i - 1) * (i - 2) * pow(s, i - 3);
+  }
+  return cpts_.transpose() * A_ * S / pow(t_, 3);
+}
+
+Eigen::Vector3d BernsteinPiece::getSnp(double t) const {
+  double          s = (t - t0_) / t_;
+  Eigen::VectorXd S;
+  S.resize(N_ + 1);
+  S.setZero();
+  for (int i = 4; i <= N_; i++) {
+    S(i) = i * (i - 1) * (i - 2) * (i - 3) * pow(s, i - 4);
+  }
+  return cpts_.transpose() * A_ * S / pow(t_, 4);
+}
+
 void BernsteinPiece::calcCoeffMat() {
   A_.resize(N_ + 1, N_ + 1);
   A_.setZero();
@@ -222,7 +244,7 @@ void Bezier::calcPieces() {
     for (int j = 0; j <= N_; j++) {
       cpts.row(j) = cpts_.row(i * (N_+1) + j);
     }
-    pieces_.emplace_back(cpts, t, t + t_[i]);
+    pieces_.emplace_back(cpts, t, t + t_[i], N_);
     t += t_[i];
   }
 }

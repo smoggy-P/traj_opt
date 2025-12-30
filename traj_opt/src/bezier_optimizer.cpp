@@ -53,7 +53,7 @@ void BezierOpt::setup(const Eigen::Matrix3d&          start,
   DM_ = DIM * M_ * (N_ + 1);
   x_.resize(DM_);
   x_.setZero();
-  calcMinJerkCost();
+  calcMinSnapCost();
   addConstraints();
 }
 
@@ -61,9 +61,11 @@ void BezierOpt::calcCtrlPtsCvtMat() {
   p2v_.resize(DIM * N_, DIM * (N_ + 1));
   v2a_.resize(DIM * (N_ - 1), DIM * N_);
   a2j_.resize(DIM * (N_ - 2), DIM * (N_ - 1));
+  j2s_.resize(DIM * (N_ - 3), DIM * (N_ - 2));
   p2v_.setZero();
   v2a_.setZero();
   a2j_.setZero();
+  j2s_.setZero();
   for (int i = 0; i < N_; i++) {
     p2v_.block(i * DIM, i * DIM, DIM, DIM)       = -N_ * Eigen::MatrixXd::Identity(DIM, DIM);
     p2v_.block(i * DIM, (i + 1) * DIM, DIM, DIM) = N_ * Eigen::MatrixXd::Identity(DIM, DIM);
@@ -76,35 +78,58 @@ void BezierOpt::calcCtrlPtsCvtMat() {
     a2j_.block(i * DIM, i * DIM, DIM, DIM)       = -(N_ - 2) * Eigen::MatrixXd::Identity(DIM, DIM);
     a2j_.block(i * DIM, (i + 1) * DIM, DIM, DIM) = (N_ - 2) * Eigen::MatrixXd::Identity(DIM, DIM);
   }
+  for (int i = 0; i < N_ - 3; i++) {
+    j2s_.block(i * DIM, i * DIM, DIM, DIM)       = -(N_ - 3) * Eigen::MatrixXd::Identity(DIM, DIM);
+    j2s_.block(i * DIM, (i + 1) * DIM, DIM, DIM) = (N_ - 3) * Eigen::MatrixXd::Identity(DIM, DIM);
+  }
 }
 
 /**
- * @brief cost = x'Qx = x'P'QPx
- * x are control points
- * P is the control points to jerk conversion matrix
- *
+ * @brief snap cost = ∑ ∫ ||p''''(t)||^2 dt
+ * 基于控制点线性映射与 Bernstein 内积解析计算
  */
- void BezierOpt::calcMinJerkCost() {
+void BezierOpt::calcMinSnapCost() {
   Q_.resize(DM_, DM_);
   Q_.setZero();
   q_.resize(DM_);
   q_.setZero();
-  
+
+  // 控制点转换：pos -> vel -> acc -> jerk -> snap
+  Eigen::MatrixXd p2s = j2s_ * a2j_ * v2a_ * p2v_;  // (DIM*(N_-3)) x (DIM*(N_+1))
+
+  // Snap 曲线阶数 m = N_ - 4，对应控制点个数 m+1 = N_-3
+  int m          = N_ - 4;
+  int ctrl_snap  = N_ - 3;
   Eigen::Matrix<double, DIM, DIM> I = Eigen::MatrixXd::Identity(DIM, DIM);
-  Eigen::MatrixXd p2j = a2j_ * v2a_ * p2v_;
-  
-  // Dynamically compute P matrix for N-degree Bezier curve
-  int n_ctrl_pts = N_ - 2;  // Number of control points for jerk calculation
-  Eigen::MatrixXd P(DIM * n_ctrl_pts, DIM * n_ctrl_pts);
+
+  // Gram 矩阵 G: ∫_0^1 B_i^m B_j^m dt = C(m,i)C(m,j) / ((2m+1) * C(2m, i+j))
+  Eigen::MatrixXd G(ctrl_snap, ctrl_snap);
+  G.setZero();
+  for (int i = 0; i <= m; ++i) {
+    for (int j = 0; j <= m; ++j) {
+      double denom = (2 * m + 1) * binomialCoeff(2 * m, i + j);
+      double numer = binomialCoeff(m, i) * binomialCoeff(m, j);
+      G(i, j)      = numer / denom;
+    }
+  }
+
+  // 扩展到 3 维（block 对角）
+  Eigen::MatrixXd P(DIM * ctrl_snap, DIM * ctrl_snap);
   P.setZero();
-  
-  // Compute jerk cost matrix based on Bezier curve degree
-  computeJerkCostMatrix(P, n_ctrl_pts, N_);
-  
-  Eigen::MatrixXd QM = p2j.transpose() * P * p2j;
-  
+  for (int i = 0; i < ctrl_snap; ++i) {
+    for (int j = 0; j < ctrl_snap; ++j) {
+      P.block(i * DIM, j * DIM, DIM, DIM) = G(i, j) * I;
+    }
+  }
+
+  // 单段归一化时间的 Q 矩阵
+  Eigen::MatrixXd QM = p2s.transpose() * P * p2s;
+
+  // 考虑实际时间尺度：snap 随时间缩放 1/T^4，积分再乘 T -> 1/T^7
   for (int i = 0; i < M_; i++) {
-    Q_.block(i * DIM * (N_ + 1), i * DIM * (N_ + 1), DIM * (N_ + 1), DIM * (N_ + 1)) = QM;
+    double scale = 1.0 / std::pow(t_[i], 7);
+    Q_.block(i * DIM * (N_ + 1), i * DIM * (N_ + 1), DIM * (N_ + 1), DIM * (N_ + 1)) =
+        scale * QM;
   }
 }
 
@@ -224,7 +249,8 @@ void BezierOpt::addConstraints() {
   int position_rows  = (1 + M_) * DIM;
   int velocity_rows  = (M_ + (enforce_final_dynamics_ ? 1 : 0)) * DIM;
   int accel_rows     = (M_ + (enforce_final_dynamics_ ? 1 : 0)) * DIM;
-  int num_continuous = position_rows + velocity_rows + accel_rows;  // continuous between segments
+  int jerk_rows      = (M_ - 1) * DIM;  // jerk continuity between segments
+  int num_continuous = position_rows + velocity_rows + accel_rows + jerk_rows;  // continuous between segments
   int num_dynamical  = M_ * (DIM * N_ + DIM * (N_ - 1));            // maximum velocity and acceleration
   int num            = num_const + num_continuous + num_dynamical;
   std::cout << "num: " << num_continuous << " | " << num_const << " | " << num_dynamical << " || "
@@ -353,6 +379,24 @@ void BezierOpt::addContinuityConstraints() {
     idx_ += DIM;
   }
 
+  /* jerk continuity (between segments only, start/end jerk not provided) */
+  constexpr int                    DIM4 = DIM * 4;
+  Eigen::Matrix<double, DIM, DIM4> p2j  = (a2j_ * v2a_ * p2v_).block<DIM, DIM4>(0, 0);
+  for (int i = 1; i < M_; i++) {
+    double t3  = pow(t_[i], 3);
+    double t3_ = pow(t_[i - 1], 3);
+
+    A_.block(idx_, i * DIM * (N_ + 1), DIM, DIM4)        = p2j / t3;
+    A_.block(idx_, i * DIM * (N_ + 1) - DIM4, DIM, DIM4) = -p2j / t3_;
+    b_.segment(idx_, DIM)                                = Eigen::Vector3d::Zero();
+    lb_.segment(idx_, DIM)                               = Eigen::Vector3d::Zero();
+    for (int d = 0; d < DIM; ++d) {
+      constraint_labels_.push_back("continuity:seg" + std::to_string(i - 1) + "->" +
+                                   std::to_string(i) + ":jrk:dim" + std::to_string(d));
+    }
+    idx_ += DIM;
+  }
+
   std::cout << "idx: " << idx_ << std::endl;
 }
 
@@ -456,7 +500,7 @@ bool BezierOpt::optimize() {
 
 void BezierOpt::calcBezierCurve() {
   Eigen::MatrixXd p = getOptCtrlPtsMat();
-  bc_.reset(new BezierCurve(t_, p));
+  bc_.reset(new BezierCurve(t_, p, N_));
 }
 
 void BezierOpt::debugDumpInfeasibleConstraints() const {

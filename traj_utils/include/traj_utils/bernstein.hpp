@@ -19,8 +19,9 @@
 #include <vector>
 
 namespace Bernstein {
-const int ORDER = 4;  // order of Bezier curve, default 4
-const int DIM   = 3;  // dimension of the trajectory
+// Default Bezier曲线阶数，可按需覆盖
+const int ORDER = 4;
+const int DIM   = 3;
 
 class BernsteinPiece {
  private:
@@ -30,24 +31,24 @@ class BernsteinPiece {
    * e.g. Bernstein with N points in 3D space -> Nx3 matrix */
   Eigen::MatrixXd cpts_;     // control points
   Eigen::MatrixXd A_;        // coefficient matrix
-  int             N_;        // order
+  int             N_ = ORDER;  // curve order (可被外部指定)
   double          t0_, tf_;  // time interval
   double          t_;        // duration
 
  public:
   BernsteinPiece() = default;
-  BernsteinPiece(const Eigen::MatrixX3d &cpts, const double &t0, const double &tf) {
+  BernsteinPiece(const Eigen::MatrixX3d &cpts, const double &t0, const double &tf, int order = ORDER) {
     cpts_ = cpts;
-    N_    = ORDER;
+    N_    = order;
     t0_   = t0;
     tf_   = tf;
     t_    = tf_ - t0_;
-    assert(cpts_.rows() == N_ + 1);  // 4th order curve has 5 control points
+    assert(cpts_.rows() == N_ + 1);
     calcCoeffMat(N_, A_);
   }
-  BernsteinPiece(const Eigen::MatrixX3d &cpts, const double &t) {
+  BernsteinPiece(const Eigen::MatrixX3d &cpts, const double &t, int order = ORDER) {
     cpts_ = cpts;
-    N_    = ORDER;
+    N_    = order;
     t0_   = 0;
     tf_   = t;
     t_    = t;
@@ -56,12 +57,18 @@ class BernsteinPiece {
   }
 
   ~BernsteinPiece() {}
-  void setControlPoints(const Eigen::MatrixX3d &cpts) {
+  void setControlPoints(const Eigen::MatrixX3d &cpts, int order) {
     cpts_ = cpts;
-    N_    = ORDER;
+    N_    = order;
     assert(cpts_.rows() == N_ + 1);
     calcCoeffMat(N_, A_);
   }
+  void setControlPoints(const Eigen::MatrixX3d &cpts) {
+    cpts_ = cpts;
+    assert(cpts_.rows() == N_ + 1);
+    calcCoeffMat(N_, A_);
+  }
+  void setOrder(const int &order) { N_ = order; }
   void setTimeInterval(const double &t0, const double &tf) {
     t0_ = t0;
     tf_ = tf;
@@ -77,6 +84,7 @@ class BernsteinPiece {
   Eigen::Vector3d getVel(double t) const;
   Eigen::Vector3d getAcc(double t) const;
   Eigen::Vector3d getJrk(double t) const;
+  Eigen::Vector3d getSnp(double t) const;
 
   Eigen::MatrixXd getPosCtrlPts() const { return cpts_; }
   Eigen::MatrixXd getVelCtrlPts() const { return calcDerivativeCtrlPts(getPosCtrlPts()); }
@@ -110,14 +118,14 @@ class Bezier {
 
  public:
   Bezier() {}
-  Bezier(const double &time) : T_(time) {
-    N_ = ORDER;
+  Bezier(const double &time, int order = ORDER) : T_(time) {
+    N_ = order;
     M_ = 1;
     t_.push_back(T_);
   }
 
-  Bezier(const std::vector<double> &time) : t_(time) {
-    N_ = ORDER;
+  Bezier(const std::vector<double> &time, int order = ORDER) : t_(time) {
+    N_ = order;
     M_ = t_.size();
     T_ = 0;
     for (int i = 0; i < M_; i++) {
@@ -125,8 +133,9 @@ class Bezier {
     }
   }
 
-  Bezier(const std::vector<double> &time, const Eigen::MatrixX3d &cpts) : t_(time), cpts_(cpts) {
-    N_ = ORDER;
+  Bezier(const std::vector<double> &time, const Eigen::MatrixX3d &cpts, int order = ORDER)
+      : t_(time), cpts_(cpts) {
+    N_ = order;
     M_ = t_.size();
     T_ = 0;
     for (int i = 0; i < M_; i++) {
@@ -186,6 +195,16 @@ class Bezier {
   inline Eigen::Vector3d getAcc(double t) const {
     int i = locatePiece(t);
     return pieces_[i].getAcc(t);
+  }
+
+  inline Eigen::Vector3d getJrk(double t) const {
+    int i = locatePiece(t);
+    return pieces_[i].getJrk(t);
+  }
+
+  inline Eigen::Vector3d getSnp(double t) const {
+    int i = locatePiece(t);
+    return pieces_[i].getSnp(t);
   }
 
   double getMaxVelRate() const;

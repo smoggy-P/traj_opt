@@ -55,7 +55,7 @@ class BezierOpt {
   void addDynamicalConstraints();
   void addSafetyConstraints();
   void calcCtrlPtsCvtMat();
-  void calcMinJerkCost();
+  void calcMinSnapCost();
   void calcBezierCurve();
   void debugDumpInfeasibleConstraints() const;
 
@@ -130,6 +130,7 @@ class BezierOpt {
   Eigen::MatrixXd p2v_;  // position control points to velocity control points
   Eigen::MatrixXd v2a_;  // velocity control points to acceleration control points
   Eigen::MatrixXd a2j_;  // acceleration control points to jerk control points
+  Eigen::MatrixXd j2s_;  // jerk control points to snap control points
 
  public:
   typedef std::shared_ptr<BezierOpt> Ptr;
