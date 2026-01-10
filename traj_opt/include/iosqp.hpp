@@ -45,6 +45,18 @@ public:
                          const double &eps_abs,
                          const double &eps_rel)
     {
+        return setMats(P, q, A, l, u, eps_abs, eps_rel, 5000);
+    }
+
+    inline c_int setMats(Eigen::SparseMatrix<double> &P,
+                         Eigen::VectorXd &q,
+                         Eigen::SparseMatrix<double> &A,
+                         Eigen::VectorXd &l,
+                         Eigen::VectorXd &u,
+                         const double &eps_abs,
+                         const double &eps_rel,
+                         const int &max_iter)
+    {
         if (pWork)
             osqp_cleanup(pWork);
 
@@ -86,6 +98,7 @@ public:
 
         pSettings->eps_abs = eps_abs;
         pSettings->eps_rel = eps_rel;
+        pSettings->max_iter = max_iter;
         pSettings->verbose = false;
 
         c_int exitflag = osqp_setup(&pWork, pData, pSettings);
