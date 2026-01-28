@@ -475,7 +475,7 @@ bool BezierOpt::optimize() {
 
   Eigen::VectorXd lb = Eigen::VectorXd::Constant(x_.size(), -OSQP_INFTY);
 
-  c_int flag = solver.setMats(Q, q_, A, lb_, b_, 1e-3, 1e-3, 500);
+  c_int flag = solver.setMats(Q, q_, A, lb_, b_, 1e-3, 1e-3, 1000);
 
   if (flag != 0) {
     std::cout << "Problem non-convex. " << std::endl;
